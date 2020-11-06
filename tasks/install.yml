@@ -1,0 +1,67 @@
+---
+- name: Install JDK
+  apt:
+    name: default-jdk
+    state: present
+    update_cache: yes
+
+- name: Create Tomcat user
+  command: sudo useradd -r -m -U -d /opt/tomcat -s /bin/false tomcat
+
+- name: Download tomcat
+  get_url:
+    url: "{{ tomcat_repo_url }}"
+    dest: /tmp
+
+- name: Unarchive Tomcat
+  unarchive:
+    src: /tmp/apache-tomcat-9.0.20.tar.gz
+    dest: "{{ tomcat_path }}"
+    remote_src: yes 
+
+- name: Create symlink
+  command: "ln -s {{ tomcat_path }}/apache-tomcat-9.0.20 {{ tomcat_path }}/enabled"
+
+- name: Change ownership of Tomcat folder
+  file:
+    path: "{{ tomcat_path }}"
+    owner: tomcat
+    group: tomcat
+    state: directory
+    recurse: yes
+    mode: 0755
+
+- name: Create Tomcat service
+  copy:
+    src: "{{ role_path }}/files/tomcat.service"
+    dest: /etc/systemd/system/
+
+- name: Dameon-reload
+  systemd:
+    daemon_reload: yes
+
+- name: Start Tomcat
+  systemd:
+    name: tomcat
+    state: started
+    enabled: yes
+
+- name: Update tomcat-users.xml
+  copy:
+    src: "{{ role_path }}/files/tomcat-users.xml"
+    dest: "{{ tomcat_path }}/enabled/conf/"
+
+- name: Update context.xml
+  copy:
+    src: "{{ role_path }}/files/context.xml"
+    dest: "{{ tomcat_path }}/enabled/webapps/host-manager/META-INF/"
+
+- name: Update context.xml 2
+  copy:
+    src: "{{ role_path }}/files/context.xml"
+    dest: "{{ tomcat_path }}/enabled/webapps/manager/META-INF/"
+
+- name: Restart Tomcat
+  systemd:
+    name: tomcat
+    state: restarted
